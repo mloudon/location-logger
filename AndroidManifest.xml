@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+      package="mobi.doorithewall.locationlogger"
+      android:versionCode="1"
+      android:versionName="1.0">
+    <uses-sdk android:minSdkVersion="7" android:targetSdkVersion="8" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.INTERNET" />
+	<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-feature android:name="android.hardware.location" android:required="true" />
+    <uses-feature android:name="android.hardware.location.gps" android:required="false" />
+    
+    <application android:name="mobi.doorinthewall.locationlogger.LoggerApplication" android:label="@string/app_name">
+        <activity android:name="mobi.doorinthewall.locationlogger.LoggerActivity"
+                  android:launchMode="singleTop"
+                  android:label="@string/app_name">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <service android:name="com.littlefluffytoys.littlefluffylocationlibrary.LocationBroadcastService" />
+        <receiver android:name="com.littlefluffytoys.littlefluffylocationlibrary.StartupBroadcastReceiver" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />  
+            </intent-filter>  
+        </receiver>
+        <receiver android:name="com.littlefluffytoys.littlefluffylocationlibrary.PassiveLocationChangedReceiver" android:exported="true" />
+        <receiver android:name="mobi.doorinthewall.locationlogger.LFBroadcastReceiver">
+            <intent-filter>
+                <action android:name="mobi.doorinthewall.locationlogger.littlefluffylocationlibrary.LOCATION_CHANGED" android:exported="false"/>
+            </intent-filter>
+        </receiver>
+    </application>
+</manifest>

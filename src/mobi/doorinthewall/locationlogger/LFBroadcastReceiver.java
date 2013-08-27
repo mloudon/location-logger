@@ -1,14 +1,21 @@
 package mobi.doorinthewall.locationlogger;
 
+import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.Reader;
 import java.io.UnsupportedEncodingException;
-import java.net.HttpURLConnection;
-import java.net.URL;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.TimeZone;
 
 import mobi.doorithewall.locationlogger.R;
+
+import org.apache.http.HttpResponse;
+import org.apache.http.client.ClientProtocolException;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.entity.StringEntity;
+import org.apache.http.impl.client.DefaultHttpClient;
+
 import android.app.Notification;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
@@ -20,100 +27,117 @@ import android.net.NetworkInfo;
 import android.os.AsyncTask;
 import android.util.Log;
 
+import com.google.gson.GsonBuilder;
 import com.littlefluffytoys.littlefluffylocationlibrary.LocationInfo;
 import com.littlefluffytoys.littlefluffylocationlibrary.LocationLibraryConstants;
 
 public class LFBroadcastReceiver extends BroadcastReceiver {
 	private Context context;
-    @Override
-    public void onReceive(Context c, Intent intent) {
-        // The location broadcast has woken the app
-    	Log.d("LoggerActivity", "onReceive: received location update");
-        context = c;
-        final LocationInfo locationInfo = (LocationInfo) intent.getSerializableExtra(LocationLibraryConstants.LOCATION_BROADCAST_EXTRA_LOCATIONINFO);
-        
-        String stringUrl = "http://urlecho.appspot.com/echo?status=200&Content-Type=text%2Fhtml&body=Hello%20world!";
-        
-        ConnectivityManager connMgr = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
+
+	@Override
+	public void onReceive(Context c, Intent intent) {
+		// The location broadcast has woken the app
+		Log.d("LFBroadcastReceiver", "onReceive: received location update");
+		context = c;
+
+		final LocationInfo locationInfo = (LocationInfo) intent
+				.getSerializableExtra(LocationLibraryConstants.LOCATION_BROADCAST_EXTRA_LOCATIONINFO);
+		Map<String, String> uploadData = new HashMap<String, String>();
+		uploadData.put("lat", "" + locationInfo.lastLat);
+		uploadData.put("lon", "" + locationInfo.lastLong);
+		uploadData.put("acc", "" + locationInfo.lastAccuracy);
+		uploadData.put("timestamp", ""
+				+ locationInfo.lastLocationUpdateTimestamp);
+		String json = new GsonBuilder().create().toJson(uploadData, Map.class);
+		Log.d("LFBroadcastReceiver", "Upload json: " + json);
+
+		String stringUrl = "http://doorinthewall.co.za/locationlogger/update/";
+
+		ConnectivityManager connMgr = (ConnectivityManager) context
+				.getSystemService(Context.CONNECTIVITY_SERVICE);
 		NetworkInfo networkInfo = connMgr.getActiveNetworkInfo();
 		if (networkInfo != null && networkInfo.isConnected()) {
-			Log.d("LoggerActivity", "Starting location upload");
-			new UploadLocationTask().execute(stringUrl);
+			Log.d("LFBroadcastReceiver", "Starting location upload");
+			new UploadLocationTask().execute(stringUrl, json);
 		} else {
-			Log.d("LoggerActivity", "No network connection available.");
+			Log.d("LFBroadcastReceiver", "No network connection available.");
 		}
-        
-    }
-    
-    private class UploadLocationTask extends AsyncTask<String, Void, String> {
+
+	}
+	
+
+	private class UploadLocationTask extends AsyncTask<String, Void, String> {
 		@Override
 		protected String doInBackground(String... urls) {
 
 			// params comes from the execute() call: params[0] is the url.
-			try {
-				return downloadUrl(urls[0]);
-			} catch (IOException e) {
-				return "Server hit failed";
-			}
+			return makeRequest(urls[0], urls[1]);
+
 		}
 
 		@Override
 		protected void onPostExecute(String result) {
 			// Construct the notification.
-	        Notification notification = new Notification(R.drawable.notification, "Location update uploaded", System.currentTimeMillis());
+			Notification notification = new Notification(
+					R.drawable.notification, "Location update uploaded",
+					System.currentTimeMillis());
 
-	        Intent contentIntent = new Intent(context, LoggerActivity.class);
-	        PendingIntent contentPendingIntent = PendingIntent.getActivity(context, 0, contentIntent, PendingIntent.FLAG_UPDATE_CURRENT);
-	        
-	        notification.setLatestEventInfo(context, "Location update uploaded", "Server said: " +result, contentPendingIntent);
-	        
-	        // Trigger the notification.
-	        Log.d("LFBroadcastReceiver", "Triggering notification");
-	        ((NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE)).notify(1234, notification);
+			Intent contentIntent = new Intent(context, LoggerActivity.class);
+			PendingIntent contentPendingIntent = PendingIntent.getActivity(
+					context, 0, contentIntent,
+					PendingIntent.FLAG_UPDATE_CURRENT);
+
+			notification.setLatestEventInfo(context,
+					"Attempted location upload", "Server said: " + result,
+					contentPendingIntent);
+
+			// Trigger the notification.
+			Log.d("LFBroadcastReceiver", "Triggering notification");
+			((NotificationManager) context
+					.getSystemService(Context.NOTIFICATION_SERVICE)).notify(
+					1234, notification);
 		}
 
 	}
 
-	// Given a URL, establishes an HttpUrlConnection and retrieves
-	// the web page content as a InputStream, which it returns as
-	// a string.
-	private String downloadUrl(String myurl) throws IOException {
-		InputStream is = null;
-		// Only display the first 500 characters of the retrieved
-		// web page content.
-		int len = 500;
-
+	private static String makeRequest(String uri, String json) {
 		try {
-			URL url = new URL(myurl);
-			HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-			conn.setReadTimeout(10000);
-			conn.setConnectTimeout(15000);
-			conn.setRequestMethod("GET");
-			conn.setDoInput(true);
-			// Starts the query
-			conn.connect();
-			int response = conn.getResponseCode();
-			Log.d("LoggerActivity", "The response  code is: " + response);
-			is = conn.getInputStream();
+			HttpPost httpPost = new HttpPost(uri);
+			httpPost.setEntity(new StringEntity(json));
+			httpPost.setHeader("Accept", "application/json");
+			httpPost.setHeader("Content-type", "application/json");
+			HttpResponse response = new DefaultHttpClient().execute(httpPost);
+			Log.e("LFBroadcastReceiver", "Upload response: "
+					+ response.getStatusLine().getReasonPhrase());
+			if (response.getStatusLine().getStatusCode() == 201) {
+				return "Success!";
+			} else {
 
-			// Convert the InputStream into a string
-			String contentAsString = readIt(is, len);
-			return contentAsString;
-
-		} finally {
-			if (is != null) {
-				is.close();
+				BufferedReader rd = new BufferedReader(new InputStreamReader(
+						response.getEntity().getContent()));
+				String body = "";
+				while ((body = rd.readLine()) != null) {
+					Log.e("HttpResponse", body);
+				}
+				return "Upload failed with code "
+						+ response.getStatusLine().getStatusCode();
 			}
+
+		} catch (UnsupportedEncodingException e) {
+			Log.e("LFBroadcastReceiver",
+					"Upload failed with UnsupportedEncodingException");
+			e.printStackTrace();
+			return "Upload failed with UnsupportedEncodingException";
+		} catch (ClientProtocolException e) {
+			Log.e("LFBroadcastReceiver",
+					"Upload failed with ClientProtocolException");
+			e.printStackTrace();
+			return "Upload failed with ClientProtocolException";
+		} catch (IOException e) {
+			Log.e("LFBroadcastReceiver", "Upload failed with IOException");
+			e.printStackTrace();
+			return "Upload failed with IOException";
 		}
 	}
 
-	// Reads an InputStream and converts it to a String.
-	public String readIt(InputStream stream, int len) throws IOException,
-			UnsupportedEncodingException {
-		Reader reader = null;
-		reader = new InputStreamReader(stream, "UTF-8");
-		char[] buffer = new char[len];
-		reader.read(buffer);
-		return new String(buffer);
-	}
 }

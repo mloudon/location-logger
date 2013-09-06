@@ -34,6 +34,14 @@ import com.littlefluffytoys.littlefluffylocationlibrary.LocationLibraryConstants
 public class LFBroadcastReceiver extends BroadcastReceiver {
 	private Context context;
 
+	class LocationFix {
+		double lat;
+		double lon;
+		double acc;
+		int timestamp;
+		String auth;
+	}
+	
 	@Override
 	public void onReceive(Context c, Intent intent) {
 		// The location broadcast has woken the app
@@ -42,14 +50,13 @@ public class LFBroadcastReceiver extends BroadcastReceiver {
 
 		final LocationInfo locationInfo = (LocationInfo) intent
 				.getSerializableExtra(LocationLibraryConstants.LOCATION_BROADCAST_EXTRA_LOCATIONINFO);
-		Map<String, String> uploadData = new HashMap<String, String>();
-		uploadData.put("lat", "" + locationInfo.lastLat);
-		uploadData.put("lon", "" + locationInfo.lastLong);
-		uploadData.put("acc", "" + locationInfo.lastAccuracy);
-		uploadData.put("timestamp", ""
-				+ locationInfo.lastLocationUpdateTimestamp);
-		uploadData.put("auth", Config.bearerToken);
-		String json = new GsonBuilder().create().toJson(uploadData, Map.class);
+		LocationFix fix = new LocationFix();
+		fix.lat = locationInfo.lastLat;
+		fix.lon = locationInfo.lastLong;
+		fix.acc = locationInfo.lastAccuracy;
+		fix.timestamp = (int)(locationInfo.lastLocationUpdateTimestamp / 1000.);
+		fix.auth = Config.bearerToken;
+		String json = new GsonBuilder().create().toJson(fix);
 		Log.d("LFBroadcastReceiver", "Upload json: " + json);
 
 		ConnectivityManager connMgr = (ConnectivityManager) context

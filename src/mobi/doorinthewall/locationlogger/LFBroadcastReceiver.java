@@ -48,17 +48,16 @@ public class LFBroadcastReceiver extends BroadcastReceiver {
 		uploadData.put("acc", "" + locationInfo.lastAccuracy);
 		uploadData.put("timestamp", ""
 				+ locationInfo.lastLocationUpdateTimestamp);
+		uploadData.put("auth", Config.bearerToken);
 		String json = new GsonBuilder().create().toJson(uploadData, Map.class);
 		Log.d("LFBroadcastReceiver", "Upload json: " + json);
-
-		String stringUrl = "http://doorinthewall.co.za/locationlogger/update/";
 
 		ConnectivityManager connMgr = (ConnectivityManager) context
 				.getSystemService(Context.CONNECTIVITY_SERVICE);
 		NetworkInfo networkInfo = connMgr.getActiveNetworkInfo();
 		if (networkInfo != null && networkInfo.isConnected()) {
 			Log.d("LFBroadcastReceiver", "Starting location upload");
-			new UploadLocationTask().execute(stringUrl, json);
+			new UploadLocationTask().execute(Config.updateUrl, json);
 		} else {
 			Log.d("LFBroadcastReceiver", "No network connection available.");
 		}

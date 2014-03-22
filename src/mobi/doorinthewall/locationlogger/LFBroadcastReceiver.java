@@ -25,6 +25,7 @@ import android.content.Intent;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.os.AsyncTask;
+import android.util.Base64;
 import android.util.Log;
 
 import com.google.gson.GsonBuilder;
@@ -34,12 +35,17 @@ import com.littlefluffytoys.littlefluffylocationlibrary.LocationLibraryConstants
 public class LFBroadcastReceiver extends BroadcastReceiver {
 	private Context context;
 
-	class LocationFix {
+	static class LocationFix {
 		double lat;
 		double lon;
 		double acc;
 		int timestamp;
-		String auth;
+		String signature;
+		
+		String auth(String secret) {
+			String message = String.format("%d|%.5f|%.5f|%.1f", timestamp, lat, lon, acc);
+			return hmac(message, secret);
+		}
 	}
 	
 	@Override
@@ -50,28 +56,50 @@ public class LFBroadcastReceiver extends BroadcastReceiver {
 
 		final LocationInfo locationInfo = (LocationInfo) intent
 				.getSerializableExtra(LocationLibraryConstants.LOCATION_BROADCAST_EXTRA_LOCATIONINFO);
+		
+		reportFix(
+			(int)(locationInfo.lastLocationUpdateTimestamp / 1000.),
+			locationInfo.lastLat,
+			locationInfo.lastLong,
+			locationInfo.lastAccuracy
+		);
+	}
+	
+	public void reportFix(int timestamp, double lat, double lon, double acc) {
 		LocationFix fix = new LocationFix();
-		fix.lat = locationInfo.lastLat;
-		fix.lon = locationInfo.lastLong;
-		fix.acc = locationInfo.lastAccuracy;
-		fix.timestamp = (int)(locationInfo.lastLocationUpdateTimestamp / 1000.);
-		fix.auth = Config.bearerToken;
+		fix.timestamp = timestamp;		
+		fix.lat = lat;
+		fix.lon = lon;
+		fix.acc = acc;
+		fix.signature = fix.auth(Config.bearerToken);
 		String json = new GsonBuilder().create().toJson(fix);
 		Log.d("LFBroadcastReceiver", "Upload json: " + json);
 
-		ConnectivityManager connMgr = (ConnectivityManager) context
-				.getSystemService(Context.CONNECTIVITY_SERVICE);
-		NetworkInfo networkInfo = connMgr.getActiveNetworkInfo();
-		if (networkInfo != null && networkInfo.isConnected()) {
+//		ConnectivityManager connMgr = (ConnectivityManager) context
+//				.getSystemService(Context.CONNECTIVITY_SERVICE);
+//		NetworkInfo networkInfo = connMgr.getActiveNetworkInfo();
+//		if (networkInfo != null && networkInfo.isConnected()) {
 			Log.d("LFBroadcastReceiver", "Starting location upload");
 			new UploadLocationTask().execute(Config.updateUrl, json);
-		} else {
-			Log.d("LFBroadcastReceiver", "No network connection available.");
-		}
+//		} else {
+//			Log.d("LFBroadcastReceiver", "No network connection available.");
+//		}
 
 	}
 	
-
+    static String hmac(String value, String key) {
+    	try {
+	    	String type = "HmacSHA1";
+	        javax.crypto.Mac mac = javax.crypto.Mac.getInstance(type);
+	        javax.crypto.spec.SecretKeySpec secret = new javax.crypto.spec.SecretKeySpec(key.getBytes(), type);
+	        mac.init(secret);
+	        byte[] digest = mac.doFinal(value.getBytes());
+	        return Base64.encodeToString(digest, 0);
+    	} catch (Exception e) {
+    		throw new RuntimeException(e);
+    	}
+    }
+	
 	private class UploadLocationTask extends AsyncTask<String, Void, String> {
 		@Override
 		protected String doInBackground(String... urls) {
@@ -115,7 +143,7 @@ public class LFBroadcastReceiver extends BroadcastReceiver {
 			HttpResponse response = new DefaultHttpClient().execute(httpPost);
 			Log.e("LFBroadcastReceiver", "Upload response: "
 					+ response.getStatusLine().getReasonPhrase());
-			if (response.getStatusLine().getStatusCode() == 201) {
+			if (response.getStatusLine().getStatusCode() == 200 || response.getStatusLine().getStatusCode() == 201) {
 				return "Success!";
 			} else {
 

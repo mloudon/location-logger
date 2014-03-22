@@ -1,9 +1,9 @@
 package mobi.doorinthewall.locationlogger;
 
-import com.littlefluffytoys.littlefluffylocationlibrary.LocationLibrary;
-
 import android.app.Application;
 import android.util.Log;
+
+import com.littlefluffytoys.littlefluffylocationlibrary.LocationLibrary;
 
 public class LoggerApplication extends Application {
 

@@ -2,7 +2,8 @@ package mobi.doorinthewall.locationlogger;
 
 public class Config {
 	
-	public static final String updateUrl = "http://mrgris.com:8080/updatetest/";
+	// would use https, but android doesn't recognize startssl CA dammit
+	public static final String updateUrl = "http://mrgris.com/littlefluffylatitude/update";
 	public static final String bearerToken = "5rcgy6zdd59u1v9fmtyfwpbp9";
 
 	public static final int locQueryInterval = 60; // seconds

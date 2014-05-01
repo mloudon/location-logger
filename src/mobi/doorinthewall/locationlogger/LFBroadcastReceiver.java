@@ -40,10 +40,11 @@ public class LFBroadcastReceiver extends BroadcastReceiver {
 		double lon;
 		double acc;
 		int timestamp;
+		String user;
 		String signature;
 		
 		String auth(String secret) {
-			String message = String.format("%d|%.5f|%.5f|%.1f", timestamp, lat, lon, acc);
+			String message = String.format("%s|%d|%.5f|%.5f|%.1f", user, timestamp, lat, lon, acc);
 			return hmac(message, secret);
 		}
 	}
@@ -71,6 +72,7 @@ public class LFBroadcastReceiver extends BroadcastReceiver {
 		fix.lat = lat;
 		fix.lon = lon;
 		fix.acc = acc;
+		fix.user = Config.user;
 		fix.signature = fix.auth(Config.bearerToken);
 		String json = new GsonBuilder().create().toJson(fix);
 		Log.d("LFBroadcastReceiver", "Upload json: " + json);

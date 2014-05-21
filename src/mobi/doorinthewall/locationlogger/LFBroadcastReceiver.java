@@ -42,13 +42,14 @@ public class LFBroadcastReceiver extends BroadcastReceiver {
 		int timestamp;
 		String user;
 		String signature;
-		
+
 		String auth(String secret) {
-			String message = String.format("%s|%d|%.5f|%.5f|%.1f", user, timestamp, lat, lon, acc);
+			String message = String.format("%s|%d|%.5f|%.5f|%.1f", user,
+					timestamp, lat, lon, acc);
 			return hmac(message, secret);
 		}
 	}
-	
+
 	@Override
 	public void onReceive(Context c, Intent intent) {
 		// The location broadcast has woken the app
@@ -57,18 +58,15 @@ public class LFBroadcastReceiver extends BroadcastReceiver {
 
 		final LocationInfo locationInfo = (LocationInfo) intent
 				.getSerializableExtra(LocationLibraryConstants.LOCATION_BROADCAST_EXTRA_LOCATIONINFO);
-		
-		reportFix(
-			(int)(locationInfo.lastLocationUpdateTimestamp / 1000.),
-			locationInfo.lastLat,
-			locationInfo.lastLong,
-			locationInfo.lastAccuracy
-		);
+
+		reportFix((int) (locationInfo.lastLocationUpdateTimestamp / 1000.), 
+				locationInfo.lastLat, locationInfo.lastLong,
+				locationInfo.lastAccuracy);
 	}
-	
+
 	public void reportFix(int timestamp, double lat, double lon, double acc) {
 		LocationFix fix = new LocationFix();
-		fix.timestamp = timestamp;		
+		fix.timestamp = timestamp ; 
 		fix.lat = lat;
 		fix.lon = lon;
 		fix.acc = acc;
@@ -77,31 +75,34 @@ public class LFBroadcastReceiver extends BroadcastReceiver {
 		String json = new GsonBuilder().create().toJson(fix);
 		Log.d("LFBroadcastReceiver", "Upload json: " + json);
 
-//		ConnectivityManager connMgr = (ConnectivityManager) context
-//				.getSystemService(Context.CONNECTIVITY_SERVICE);
-//		NetworkInfo networkInfo = connMgr.getActiveNetworkInfo();
-//		if (networkInfo != null && networkInfo.isConnected()) {
-			Log.d("LFBroadcastReceiver", "Starting location upload");
-			new UploadLocationTask().execute(Config.updateUrl, json);
-//		} else {
-//			Log.d("LFBroadcastReceiver", "No network connection available.");
-//		}
+		ConnectivityManager connMgr = (ConnectivityManager) context
+				.getSystemService(Context.CONNECTIVITY_SERVICE);
+		NetworkInfo networkInfo = connMgr.getActiveNetworkInfo();
+		if (networkInfo != null && networkInfo.isConnected()) {
+			for (String url : Config.updateUrls) {
+				Log.d("LFBroadcastReceiver", "Starting location upload");
+				new UploadLocationTask().execute(url, json);
+			}
+		} else {
+			Log.d("LFBroadcastReceiver", "No network connection available.");
+		}
 
 	}
-	
-    static String hmac(String value, String key) {
-    	try {
-	    	String type = "HmacSHA1";
-	        javax.crypto.Mac mac = javax.crypto.Mac.getInstance(type);
-	        javax.crypto.spec.SecretKeySpec secret = new javax.crypto.spec.SecretKeySpec(key.getBytes(), type);
-	        mac.init(secret);
-	        byte[] digest = mac.doFinal(value.getBytes());
-	        return Base64.encodeToString(digest, 0);
-    	} catch (Exception e) {
-    		throw new RuntimeException(e);
-    	}
-    }
-	
+
+	static String hmac(String value, String key) {
+		try {
+			String type = "HmacSHA1";
+			javax.crypto.Mac mac = javax.crypto.Mac.getInstance(type);
+			javax.crypto.spec.SecretKeySpec secret = new javax.crypto.spec.SecretKeySpec(
+					key.getBytes(), type);
+			mac.init(secret);
+			byte[] digest = mac.doFinal(value.getBytes());
+			return Base64.encodeToString(digest, 0);
+		} catch (Exception e) {
+			throw new RuntimeException(e);
+		}
+	}
+
 	private class UploadLocationTask extends AsyncTask<String, Void, String> {
 		@Override
 		protected String doInBackground(String... urls) {
@@ -145,7 +146,8 @@ public class LFBroadcastReceiver extends BroadcastReceiver {
 			HttpResponse response = new DefaultHttpClient().execute(httpPost);
 			Log.e("LFBroadcastReceiver", "Upload response: "
 					+ response.getStatusLine().getReasonPhrase());
-			if (response.getStatusLine().getStatusCode() == 200 || response.getStatusLine().getStatusCode() == 201) {
+			if (response.getStatusLine().getStatusCode() == 200
+					|| response.getStatusLine().getStatusCode() == 201) {
 				return "Success!";
 			} else {
 
